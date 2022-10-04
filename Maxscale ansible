@@ -1,0 +1,72 @@
+- name: MariaDB Maxscale Installation
+  hosts: maxscale
+  tasks:
+  - name: Install mariaDB maxscale
+    become: true
+    yum:
+      name: maxscale
+      state: present
+
+- name: Create maxscale username and grant privillege
+  hosts: dbserver1
+  become: yes
+  vars_files:
+    - /root/vars/maxscale.yml
+  roles:
+    - { role: geerlingguy.mysql }
+
+- name: Copy galera config to mariadb-master
+  hosts: dbserver1
+  tasks:
+  - blockinfile:
+      path: /etc/my.cnf
+      state: present
+      block: |
+        [mariadb]
+        server_id=1
+        log-basename=master
+        log-bin=/var/lib/mysql/mariadb-bin
+        log-bin-index=/var/lib/mysql/master-bin.index
+        binlog-format=row
+        binlog-do-db=wordpress
+        log_slave_updates=on
+        gtid_domain_id=1
+
+        # * Galera-related settings
+        [galera]
+        binlog_format=ROW
+        default-storage-engine=innodb
+        innodb_autoinc_lock_mode=2
+        bind-address=0.0.0.0
+        query_cache_size=0
+        query_cache_type=0
+
+        # Galera Provider Configuration
+        wsrep_on=ON
+        wsrep_gtid_mode=ON
+        wsrep_gtid_domain_id=0
+        wsrep_provider=/usr/lib64/galera-4/libgalera_smm.so
+
+
+        # Galera Cluster Configuration
+        wsrep_cluster_name="galera_cluster"
+        wsrep_cluster_address="gcomm://172.16.1.53,172.16.1.54,172.16.1.56"
+
+        # Galera Synchronization Configuration
+        wsrep_sst_method=rsync
+
+        # Galera Node Configuration
+        wsrep_node_address="172.16.1.53"
+        wsrep_node_name="db-master"
+
+- name: Overwrite mariadb maxscale config
+  hosts: maxscale
+  tasks:
+  - template:
+      dest: "/etc/maxscale.cnf"
+      src: "/home/maxscale.cnf"
+
+- name: Restart maxscale
+  service:
+      name: maxscale
+      state: started

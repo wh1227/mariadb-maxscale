@@ -1,0 +1,60 @@
+[maxscale]
+threads = auto
+log_augmentation = 1
+ms_timestamp = 1
+syslog = 1
+admin_secure_gui = false
+admin_host=0.0.0.0
+
+[server1]
+type=server
+address=172.16.1.53
+port=3306
+protocol=MariaDBBackend
+
+[server2]
+type=server
+address=172.16.1.54
+port=3306
+protocol=MariaDBBackend
+
+[server3]
+type=server
+address=172.16.1.56
+port=3306
+protocol=MariaDBBackend
+
+[Galera-Monitor]
+type=monitor
+module=galeramon
+servers=server1,server2,server3
+user=maxscaleuser
+password=B3178312CDAB5A3A9F3DFF689742E77114EA7383E8314A02BAEDA8F115DA69F4
+monitor_interval=2000
+
+[Read-Write-Service]
+type=service
+router=readwritesplit
+servers=server1,server2,server3
+user=maxscaleuser
+password=B3178312CDAB5A3A9F3DFF689742E77114EA7383E8314A02BAEDA8F115DA69F4
+
+[Read-Only-Service]
+type=service
+router=readconnroute
+servers=server1,server2,server3
+user=maxscaleuser
+password=B3178312CDAB5A3A9F3DFF689742E77114EA7383E8314A02BAEDA8F115DA69F4
+router_options=slave
+
+[Read-Write-Listener]
+type=listener
+service=Read-Write-Service
+protocol=MariaDBClient
+port=4006
+
+[Read-Only-Listener]
+type=listener
+service=Read-Only-Service
+protocol=MariaDBClient
+port=4008
